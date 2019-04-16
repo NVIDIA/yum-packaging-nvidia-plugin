@@ -35,35 +35,6 @@ def init_hook(conduit):
 	   Eventually this should just go away."""
 	conduit.info(2, '#### NVIDIA ####')
 
-def get_mod_version_for_kernel(conduit, driverPackage, kernelVersion, kernelRelease):
-	"""Every kernel module is valid for the kernel version is was built against,
-	   as well as 0 or more later kernel versions, provided those kernel versions
-	   are ABI-compatible regarding the Nvidia driver.
-	   To get the module version given a kernel version means we need to use the
-	   latest kernel module with the highest version number that is still lower
-	   or equal the kernel version."""
-	modName = get_module_pkg_name(driverPackage)
-	q = filter(lambda pkg: pkg.name.startswith(modName), conduit.getPackages())
-
-	selection = ('0', '0')
-	for pkg in q:
-		# Our kernel module package version contains both the kernel release
-		# as well as the module release version, the latter being the last number
-		# before the%{dist} part. To get the release in a form that we can
-		# compare to the kernel version, just remove the dist and
-		# release part
-		pkgRelease = remove_pkg_release(pkg.release)
-
-		# From the docs:
-		# return  1: a is newer than b
-		#        -1: b is newer than a
-		kernelCmp = compareEVR(('', kernelVersion, kernelRelease), ('', pkg.version, pkgRelease))
-		selectionCmp = compareEVR(('', selection[0], selection[1]), ('', pkg.version, pkg.release))
-		if (kernelCmp == 0 or kernelCmp == 1) and  selectionCmp == -1:
-			selection = (pkg.version, pkg.release)
-
-	return selection
-
 def addErase(conduit, tsInfo, package):
 	"""additional sanity check that we only try to addErase() installed packages,
 	   i.e. RPMInstalledPackage instances. If we add others here, e.g. just
@@ -77,31 +48,31 @@ def addErase(conduit, tsInfo, package):
 def get_module_package(conduit, driverPackage, kernelPackage):
 	"""Return the corresponding kernel module package, given an installed driver package
 	   and a kernel package."""
-	modVersion = get_mod_version_for_kernel(conduit, driverPackage, kernelPackage.version, kernelPackage.release)
-
-	if modVersion == ('0', '0'):
-		raise DepError('Could not find suitable Nvidia kernel module version for kernel ' +
-		               kernelPackage.version + '.' + kernelPackage.release + ' and driver ' +
-		               str(driverPackage))
-		return None
 
 	modName = get_module_pkg_name(driverPackage)
+	modRelease = get_module_pkg_release(kernelPackage, driverPackage)
 
 	# We search the DB first so we can be sure to get a YumInstalledPackage
 	# instance in case the module package is already installed and a
 	# YumAvailablePackage instance in case it ins't.
 	db = conduit.getRpmDB()
-	pkgs = db.searchNevra(modName, driverPackage.epoch, modVersion[0], modVersion[1], driverPackage.arch)
+	pkgs = db.searchNevra(modName, driverPackage.epoch, kernelPackage.version, \
+		modRelease, driverPackage.arch)
+
 	if pkgs:
-		assert(len(pkgs) == 1)
+		# Assume len(pkgs) == 1, but don't assert
 		return pkgs[0]
 
 	try:
 		return conduit._base.getPackageObject((modName, driverPackage.arch,
-		                                       driverPackage.epoch, modVersion[0],
-		                                       modVersion[1]))
+		                                       driverPackage.epoch, kernelPackage.version,
+		                                       modRelease))
 	except:
-		return None
+		# Do nothing and let the later raise + return handle this case.
+		pass
+
+	raise DepError('Could not find suitable Nvidia kernel module version for kernel ' +
+		       str(kernelPackage) + ' and driver ' + str(driverPackage))
 
 	return None
 
@@ -113,17 +84,10 @@ def install_modules_for_kernels(conduit, driverPackage, kernelPackages):
 	newestKernel = get_most_recent_kernel(conduit, kernelPackages)
 	modPo = get_module_package(conduit, driverPackage, newestKernel)
 
-        conduit.info(2, 'install_modules_for_kernels!')
-        conduit.info(2, str(driverPackage))
-        conduit.info(2, str(kernelPackages))
-
 	if modPo is None:
 		modName = get_module_pkg_name(driverPackage)
-                conduit.info(2, 'modName: ' + str(modName))
-		modVersion = get_mod_version_for_kernel(conduit, driverPackage, k.version, k.release)
-		msg(conduit, 'No kernel module package ' +
-		    modName + '-' + modVersion[0] + '-' + modVersion[1] +
-		    ' for kernel version ' + k.version + '-' + k.release + ' found')
+		msg(conduit, 'No kernel module package ' + modName + ' for ' + \
+			str(newestKernel) + ' and ' + str(driverPackage) + ' found')
 		return
 
 	if db.contains(po = modPo):
@@ -199,11 +163,11 @@ def installing_driver(conduit, driverPackage, installingKernels):
 def postresolve_hook(conduit):
 	db = conduit.getRpmDB()
 	tsInfo = conduit.getTsInfo()
-	erasePkgs = tsInfo.getMembersWithState(output_states=[TS_ERASE])
+	erasePkgs = tsInfo.getMembersWithState(output_states=[TS_ERASE, TS_UPDATED])
 	installPkgs = tsInfo.getMembersWithState(output_states=[TS_INSTALL, TS_TRUEINSTALL,
-	                                                        TS_UPDATE, TS_UPDATED])
+	                                                        TS_UPDATE])
 
-	# Prepend a '*' to all the package names in our list
+	# Append a '*' to all the package names in our list
 	installedDriverPackage = db.returnPackages(patterns=[DRIVER_PKG_BASENAME + '*'])
 
 	# The above query for the rpm database returns all packages starting with
@@ -251,7 +215,7 @@ def postresolve_hook(conduit):
 		erasing_driver(conduit, erasingDriverPackage)
 
 	if installedDriverPackage:
-		if installingKernels:
+		if installingKernels and not installingDriverPackage:
 			installing_kernels(conduit, installingKernels, installedDriverPackage[0])
 
 		if erasingKernels:
@@ -265,48 +229,14 @@ def preresolve_hook(conduit):
 	if not moduleUpgrades:
 		return
 
+	# Stop yum from automatically updating our packages, since we do it ourselves.
+	# This is technically not necessary, but we need to implement all the
+	# kmod package update handling ourselves anyway.
+
 	# This should really be the only one
 	po = moduleUpgrades[0]
-	installedPo = conduit.getRpmDB().returnPackages(patterns=[MODULE_PKG_BASENAME + '*'])
+	tsInfo.deselect(po.name)
 
-	if installedPo:
-		# The kernel module packages always have the same version number (the one of the kernel)
-		# and the the kernel's release number as well, followed by another release number from the
-		# kernel module package.
-		# The only updates of the kernel module packages we want to allow are those that ONLY
-		# update the release number of the kernel module package. An update to a module that's
-		# been built against another (i.e. newer) kernel is not permitted.
-		installedPo = installedPo[0]
-
-		poRel = remove_pkg_release(po.release)
-		installedRel = remove_pkg_release(installedPo.release)
-
-		# We now compare the kernel version and the kernel release of the
-		# installed and about-to-be-installed package. They should be the
-		# same.
-		if installedPo.version != po.version or installedRel != poRel:
-			tsInfo.deselect(po.name)
-			return
-
-		# And now we still want to allow upgrades that only change the
-		# package release number.
-		pkgCmp = compareEVR(('', po.version, po.release),
-		                    ('', installedPo.version, installedPo.release))
-		if pkgCmp != 1:
-			tsInfo.deselect(po.name)
-	else:
-		tsInfo.deselect(po.name)
-
-
-def remove_pkg_release(rel):
-	"""The package release field is made up of the kernel release it was
-	   built against, the module package release number and the dist, so
-	   e.g. 862.1.el7. Here we remove the last two parts and return only
-	   the kernel release"""
-	rel = rel[:rel.rfind('.')] # Strip off rel part
-	rel = rel[:rel.rfind('.')] # Strip module package release
-
-	return rel
 
 def match_list(patternList, pkg):
 	for p in patternList:
@@ -321,6 +251,13 @@ def is_driver_po(po):
 def get_module_pkg_name(driverPackage):
 	return driverPackage.name.replace(DRIVER_PKG_BASENAME, MODULE_PKG_BASENAME)
 
+def get_module_pkg_release(kernelPackage, driverPackage):
+	"""In our scheme, we build up the kmod package release field from the
+	   kernel release field as well as the driver version."""
+	start = kernelPackage.release[:kernelPackage.release.rfind('.')]
+	end = kernelPackage.release[kernelPackage.release.rfind('.'):]
+
+	return start + '.r' + driverPackage.version + end
 
 def compare_po(po1, po2):
 	return compareEVR((po1.epoch, po1.version, po1.release),

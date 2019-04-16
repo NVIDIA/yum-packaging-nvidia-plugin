@@ -1,5 +1,5 @@
 Name:		yum-plugin-nvidia
-Version:	0.1
+Version:	0.2
 Release:	1%{?dist}
 Summary:	YUM plugin to handle Nvidia driver module packages
 
@@ -36,5 +36,8 @@ install -m 644 %{SOURCE0} %{buildroot}%{_prefix}/lib/yum-plugins/nvidia.py
 %config(noreplace) %{_sysconfdir}/yum/pluginconf.d/nvidia.conf
 
 %changelog
+* Tue Apr 16 2019 Timm Bäder <tbaeder@redhat.com> 0.2-1
+ - Stop yum from automatically updating kmod packages
+
 * Thu Jun 21 2018 Timm Bäder <tbaeder@redhat.com> 0.1-1
  - Initial revision
