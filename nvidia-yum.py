@@ -22,6 +22,7 @@ plugin_type = (TYPE_CORE)
 
 KERNEL_PKG_NAME = 'kernel'
 MODULE_PKG_BASENAME = 'kmod-nvidia'
+MODULE_PKG_PATTERN  = re.compile(MODULE_PKG_BASENAME + '-(branch-[0-9][0-9][0-9]|latest)$')
 
 DRIVER_PKG_BASENAME = 'nvidia-driver'
 DRIVER_PKG_PATTERN  = re.compile(DRIVER_PKG_BASENAME + '-(branch-[0-9][0-9][0-9]|latest)$')
@@ -205,7 +206,7 @@ def postresolve_hook(conduit):
 	# package, to satisfy the dependency the nvidia-driver package has. However,
 	# we will handle that ourselves so remove all of them here.
 	for member in tsInfo.getMembers():
-		if member.name.startswith(MODULE_PKG_BASENAME):
+		if MODULE_PKG_PATTERN.match(member.name):
 			tsInfo.deselect(member.name)
 
 	if installingDriverPackage:
@@ -223,7 +224,7 @@ def postresolve_hook(conduit):
 
 def preresolve_hook(conduit):
 	tsInfo = conduit.getTsInfo()
-	moduleUpgrades = filter(lambda m: m.name.startswith(MODULE_PKG_BASENAME), tsInfo.getMembers())
+	moduleUpgrades = filter(lambda m: MODULE_PKG_PATTERN.match(m.name), tsInfo.getMembers())
 
 	# Not interesting for us
 	if not moduleUpgrades:
