@@ -12,6 +12,9 @@ import dnf.sack
 DRIVER_PKG_NAME = 'nvidia-driver'
 KMOD_PKG_PREFIX = 'kmod-nvidia'
 
+def is_kmod_pkg(pkg):
+    return pkg.name.startswith(KMOD_PKG_PREFIX) and 'dkms' not in pkg.name
+
 class NvidiaPlugin(dnf.Plugin):
     name = 'nvidia'
 
@@ -37,5 +40,5 @@ class NvidiaPlugin(dnf.Plugin):
                 # and remove them if they match the version of the driver
                 # we're removing right now.
                 for kmod in installed_kmods:
-                    if kmod.name.startswith(KMOD_PKG_PREFIX):
+                    if is_kmod_pkg(kmod):
                         transaction.add_erase(kmod)

@@ -1,5 +1,5 @@
 Name:		dnf-plugin-nvidia
-Version:	1.0
+Version:	1.1
 Release:	1%{?dist}
 Summary:	DNF plugin needed to remove old kernel modules
 
@@ -30,5 +30,8 @@ install -m 644 %{SOURCE0} %{buildroot}/usr/lib/python3.6/site-packages/dnf-plugi
 #%{python3_sitelib}/dnf-plugins/__pycache__/nvidia.*
 
 %changelog
+* Mon Jun 17 2019 Timm Bäder <tbaeder@redhat.com> 1.1-1
+ - Exclude dkms packages
+
 * Tue May 28 2019 Timm Bäder <tbaeder@redhat.com> 1.0-1
  - Initial .spec
