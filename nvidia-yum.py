@@ -34,7 +34,7 @@ def msg(conduit, message):
 def init_hook(conduit):
 	"""This is just here to make sure the plugin was loaded correctly.
 	   Eventually this should just go away."""
-	conduit.info(2, '#### NVIDIA ####')
+	# conduit.info(2, '#### NVIDIA ####')
 
 def addErase(conduit, tsInfo, package):
 	"""additional sanity check that we only try to addErase() installed packages,

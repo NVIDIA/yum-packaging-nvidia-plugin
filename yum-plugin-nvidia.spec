@@ -1,5 +1,5 @@
 Name:		yum-plugin-nvidia
-Version:	0.3
+Version:	0.4
 Release:	1%{?dist}
 Summary:	YUM plugin to handle Nvidia driver module packages
 
@@ -36,6 +36,9 @@ install -m 644 %{SOURCE0} %{buildroot}%{_prefix}/lib/yum-plugins/nvidia.py
 %config(noreplace) %{_sysconfdir}/yum/pluginconf.d/nvidia.conf
 
 %changelog
+* Mon Jun 24 2019 Timm Bäder <tbaeder@redhat.com> 0.4-1
+ - Remove debugging line
+
 * Wed May 15 2019 Timm Bäder <tbaeder@redhat.com> 0.3-1
  - Replace startsWith with regex
 
