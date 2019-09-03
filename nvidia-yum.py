@@ -29,7 +29,7 @@ DRIVER_PKG_PATTERN  = re.compile(DRIVER_PKG_BASENAME + '-(branch-[0-9][0-9][0-9]
 DEPEND_ON_KMOD_PATTERNS = [DRIVER_PKG_PATTERN]
 
 def msg(conduit, message):
-	conduit.info(1, 'NVIDIA: ' + message + str(conduit) + str(type(conduit)))
+	conduit.info(1, 'NVIDIA: ' + message)
 
 def init_hook(conduit):
 	"""This is just here to make sure the plugin was loaded correctly.
@@ -50,6 +50,7 @@ def get_module_package(conduit, driverPackage, kernelPackage):
 	"""Return the corresponding kernel module package, given an installed driver package
 	   and a kernel package."""
 
+	tsInfo = conduit.getTsInfo()
 	modName = get_module_pkg_name(driverPackage)
 	modRelease = get_module_pkg_release(kernelPackage, driverPackage)
 
@@ -69,11 +70,9 @@ def get_module_package(conduit, driverPackage, kernelPackage):
 		                                       driverPackage.epoch, kernelPackage.version,
 		                                       modRelease))
 	except:
-		# Do nothing and let the later raise + return handle this case.
 		pass
 
-	raise DepError('Could not find suitable Nvidia kernel module version for kernel ' +
-		       str(kernelPackage) + ' and driver ' + str(driverPackage))
+	tsInfo.deselect('kernel')
 
 	return None
 
@@ -88,13 +87,15 @@ def install_modules_for_kernels(conduit, driverPackage, kernelPackages):
 	if modPo is None:
 		modName = get_module_pkg_name(driverPackage)
 		msg(conduit, 'No kernel module package ' + modName + ' for ' + \
-			str(newestKernel) + ' and ' + str(driverPackage) + ' found')
-		return
+		    str(newestKernel) + ' and ' + str(driverPackage) + ' found. ' +  \
+		    'Ignoring the new kernel')
+		return False
 
 	if db.contains(po = modPo):
-		return
+		return True
 
 	tsInfo.addTrueInstall(modPo)
+	return True
 
 def installing_kernels(conduit, kernelPackages, driverPackage):
 	"""When installing new kernels, we need to also install the driver module packages
@@ -107,15 +108,19 @@ def installing_kernels(conduit, kernelPackages, driverPackage):
 	allKernels = list(kernelPackages)
 	allKernels.extend(db.returnPackages(patterns=[KERNEL_PKG_NAME]))
 
+	# Will install the kernel module package for the newest one of the kernel packages
+	success = install_modules_for_kernels(conduit, driverPackage, kernelPackages)
+
+	if not success:
+		return
+
 	for k in allKernels:
 		if k != newestKernel:
 			modPo = get_module_package(conduit, driverPackage, k)
 
 			if db.contains(po = modPo):
-			    addErase(conduit, tsInfo, modPo)
+				addErase(conduit, tsInfo, modPo)
 
-	# Will install the kernel module package for the newest one of the kernel packages
-	install_modules_for_kernels(conduit, driverPackage, kernelPackages)
 
 def erasing_kernels(conduit, kernelPackages, driverPackage):
 	"""When erasing kernel modules, we want to remove their driver kernel module
