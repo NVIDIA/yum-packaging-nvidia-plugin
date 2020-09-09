@@ -1,6 +1,6 @@
 %define pythonX_sitelib	%{?_python_sitelib}%{?!_python_sitelib:/usr/lib/python3.6/site-packages}
 Name:		dnf-plugin-nvidia
-Version:	1.7
+Version:	1.8
 Release:	1%{?dist}
 Summary:	DNF plugin needed to remove old kernel modules
 
@@ -27,12 +27,15 @@ install -m 644 %{SOURCE0} %{buildroot}%{pythonX_sitelib}/dnf-plugins/nvidia.py
 %{pythonX_sitelib}/dnf-plugins/__pycache__/nvidia.*
 
 %changelog
+* Wed Sep 9 2020 Kevin Mittman <kmittman@nvidia.com> 1.8-1
+ - Block kernel-core updates that do not have a matching kmod package
+
 * Tue Sep 8 2020 Kevin Mittman <kmittman@nvidia.com> 1.7-1
  - Pass %_python_sitelib as variable to avoid hard-coding python3.6
 
 * Tue Oct 29 2019 Timm Bäder <tbaeder@redhat.com> 1.6-1
  - Block kernel updates that do not have a matching kmod package
- - Use %python3_sitelib. 
+ - Use %python3_sitelib
 
 * Mon Jun 17 2019 Timm Bäder <tbaeder@redhat.com> 1.1-1
  - Exclude dkms packages

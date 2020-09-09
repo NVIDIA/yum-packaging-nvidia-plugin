@@ -13,6 +13,7 @@ import libdnf.transaction
 
 DRIVER_PKG_NAME = 'nvidia-driver'
 KERNEL_PKG_NAME = 'kernel'
+KERNEL_PKG_REAL = 'kernel-core'
 KMOD_PKG_PREFIX = 'kmod-nvidia'
 
 def is_kmod_pkg(pkg):
@@ -43,6 +44,7 @@ class NvidiaPlugin(dnf.Plugin):
 
         installed_drivers = sack.query().installed().filter(name = DRIVER_PKG_NAME)
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
+
         if not installed_drivers:
             return
 
@@ -60,6 +62,8 @@ class NvidiaPlugin(dnf.Plugin):
             if ver_cmp_pkgs(sack, kernelpkg, installed_kernel) != 1:
                 continue
 
+            k_corepkg = str(kernelpkg).replace(KERNEL_PKG_NAME + "-", KERNEL_PKG_REAL + "-")
+
             kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(driver.version) + '-' + \
                     str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
@@ -67,6 +71,7 @@ class NvidiaPlugin(dnf.Plugin):
             if not kmod_pkg:
                 # Exclude kernel
                 sack.add_excludes([kernelpkg])
+                sack.add_excludes([k_corepkg])
                 print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
                     str(kmod_pkg_name) + ' for kernel ' + str(kernelpkg) + ' and driver ' + \
                     str(driver) + ' could be found')
