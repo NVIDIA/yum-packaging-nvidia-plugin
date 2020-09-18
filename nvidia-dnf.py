@@ -44,6 +44,7 @@ class NvidiaPlugin(dnf.Plugin):
 
         installed_drivers = sack.query().installed().filter(name = DRIVER_PKG_NAME)
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
+        installed_modules = list(sack.query().installed().filter(name__substr = KMOD_PKG_PREFIX))
 
         if not installed_drivers:
             return
@@ -55,6 +56,13 @@ class NvidiaPlugin(dnf.Plugin):
         installed_kernel  = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))[0]
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
         driver = installed_drivers[0]
+
+        if installed_modules:
+            string_modules = ' '.join([str(elem) for elem in installed_modules])
+
+        # DKMS stream enabled
+        if installed_modules and 'dkms' in string_modules:
+            return
 
         # Exclude all available kernels which are newer than the most recent installed
         # kernel AND do NOT have a kmod package
