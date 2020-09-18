@@ -39,19 +39,28 @@ class NvidiaPlugin(dnf.Plugin):
         self.base = base
         self.cli = cli
 
-    def sack(self):
-        sack = self.base.sack
+    def sack(self, debug = None):
+        # run as command
+        if debug == True:
+            base = self.base()
+            base.read_all_repos()
+            base.fill_sack()
+            sack = base.sack
+        # run as plugin
+        else:
+            sack = self.base.sack
 
+        # check installed
         installed_drivers = sack.query().installed().filter(name = DRIVER_PKG_NAME)
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
         installed_modules = list(sack.query().installed().filter(name__substr = KMOD_PKG_PREFIX))
 
         # driver not installed
-        if not installed_drivers:
+        if not installed_drivers and debug is None:
             return
 
         # container/chroot
-        if not installed_kernel:
+        if not installed_kernel and debug is None:
             return
 
         # The most recent installed kernel package
@@ -100,7 +109,7 @@ class NvidiaPlugin(dnf.Plugin):
 
                 if exclude == True:
                     print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
-                        str(kmod_pkg_name) + ' for kernel ' + str(kernelpkg) + ' and driver ' + \
+                    str(kmod_pkg_name) + ' for kernel version' + str(kernelpkg) + ' and driver ' + \
                         str(driver) + ' could be found')
 
     def resolved(self):
@@ -122,3 +131,13 @@ class NvidiaPlugin(dnf.Plugin):
                 for kmod in installed_kmods:
                     if is_kmod_pkg(kmod):
                         transaction.add_erase(kmod)
+
+
+@dnf.plugin.register_command
+class NvidiaPluginCommand(dnf.cli.Command):
+    aliases = ('nvidia-plugin',)
+    summary = 'Helper plugin for DNF to manage precompiled NVIDIA driver streams'
+
+    def run(self):
+        nvPlugin = NvidiaPlugin(dnf.Base, dnf.cli.Cli)
+        nvPlugin.sack(True)
