@@ -30,6 +30,12 @@ def ver_cmp_pkgs(sack, po1, po2):
     return sack.evr_cmp(str(po1.epoch) + ':' + str(po1.version) + '-' + str(po1.release),
                         str(po2.epoch) + ':' + str(po2.version) + '-' + str(po2.release));
 
+def revive_msg(var, msg, val = ''):
+    if var is not None:
+        print(msg)
+
+    return val
+
 
 class NvidiaPlugin(dnf.Plugin):
     name = 'nvidia'
@@ -68,17 +74,30 @@ class NvidiaPlugin(dnf.Plugin):
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
         available_k_cores = sack.query().available().filter(name = KERNEL_PKG_REAL)
 
+        # Print debugging if running from CLI
+        if installed_kernel:
+            revive_msg(debug, '\nkernel: ' + str(installed_kernel))
+
+        if available_kernels:
+            string_kernels = ' '.join([str(elem) for elem in available_kernels])
+            revive_msg(debug, '\navailable ' + KERNEL_PKG_NAME + '(s): ' + str(string_kernels))
+
+        if available_k_cores:
+            string_cores = ' '.join([str(elem) for elem in available_k_cores])
+            revive_msg(debug, '\navailable ' + KERNEL_PKG_REAL + '(s): ' + str(string_cores))
+
+        if installed_modules:
+            string_modules = ' '.join([str(elem) for elem in installed_modules])
+            revive_msg(debug, '\ninstalled kmod(s): ' + str(string_modules))
+
+        # DKMS stream enabled
+        if installed_modules and 'dkms' in string_modules:
+            return
+
         # Installed driver
         try:
             driver = installed_drivers[0]
         except:
-            return
-
-        if installed_modules:
-            string_modules = ' '.join([str(elem) for elem in installed_modules])
-
-        # DKMS stream enabled
-        if installed_modules and 'dkms' in string_modules:
             return
 
         # Exclude all available kernels which are newer than the most recent installed
@@ -141,3 +160,4 @@ class NvidiaPluginCommand(dnf.cli.Command):
     def run(self):
         nvPlugin = NvidiaPlugin(dnf.Base, dnf.cli.Cli)
         nvPlugin.sack(True)
+        print("---")
