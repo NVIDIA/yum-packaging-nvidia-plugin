@@ -46,16 +46,24 @@ class NvidiaPlugin(dnf.Plugin):
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
         installed_modules = list(sack.query().installed().filter(name__substr = KMOD_PKG_PREFIX))
 
+        # driver not installed
         if not installed_drivers:
             return
 
-        if not installed_kernel: # container/chroot
+        # container/chroot
+        if not installed_kernel:
             return
 
         # The most recent installed kernel package
         installed_kernel  = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))[0]
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
-        driver = installed_drivers[0]
+        available_k_cores = sack.query().available().filter(name = KERNEL_PKG_REAL)
+
+        # Installed driver
+        try:
+            driver = installed_drivers[0]
+        except:
+            return
 
         if installed_modules:
             string_modules = ' '.join([str(elem) for elem in installed_modules])
@@ -70,19 +78,30 @@ class NvidiaPlugin(dnf.Plugin):
             if ver_cmp_pkgs(sack, kernelpkg, installed_kernel) != 1:
                 continue
 
-            k_corepkg = str(kernelpkg).replace(KERNEL_PKG_NAME + "-", KERNEL_PKG_REAL + "-")
+            # Matching kernel-core package
+            try:
+                k_corepkg = [i for i in available_k_cores if i.version == kernelpkg.version and i.release == kernelpkg.release][0]
+            except:
+                print('Unable to find matching ' + KERNEL_PKG_REAL + ' package')
 
+            # Get package name
             kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(driver.version) + '-' + \
                     str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
             kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = driver.version)
             if not kmod_pkg:
-                # Exclude kernel
-                sack.add_excludes([kernelpkg])
-                sack.add_excludes([k_corepkg])
-                print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
-                    str(kmod_pkg_name) + ' for kernel ' + str(kernelpkg) + ' and driver ' + \
-                    str(driver) + ' could be found')
+                # Exclude kernel packages
+                try:
+                    sack.add_excludes([kernelpkg])
+                    sack.add_excludes([k_corepkg])
+                    exclude = True
+                except Exception as error:
+                    print('WARNING: kernel exclude error', error)
+
+                if exclude == True:
+                    print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
+                        str(kmod_pkg_name) + ' for kernel ' + str(kernelpkg) + ' and driver ' + \
+                        str(driver) + ' could be found')
 
     def resolved(self):
         transaction = self.base.transaction
