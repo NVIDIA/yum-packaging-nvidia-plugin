@@ -30,6 +30,12 @@ def ver_cmp_pkgs(sack, po1, po2):
     return sack.evr_cmp(str(po1.epoch) + ':' + str(po1.version) + '-' + str(po1.release),
                         str(po2.epoch) + ':' + str(po2.version) + '-' + str(po2.release));
 
+def revive_msg(var, msg, val = ''):
+    if var is not None:
+        print(msg)
+
+    return val
+
 
 class NvidiaPlugin(dnf.Plugin):
     name = 'nvidia'
@@ -39,22 +45,60 @@ class NvidiaPlugin(dnf.Plugin):
         self.base = base
         self.cli = cli
 
-    def sack(self):
-        sack = self.base.sack
+    def sack(self, debug = None):
+        # run as command
+        if debug == True:
+            base = self.base()
+            base.read_all_repos()
+            base.fill_sack()
+            sack = base.sack
+        # run as plugin
+        else:
+            sack = self.base.sack
 
+        # check installed
         installed_drivers = sack.query().installed().filter(name = DRIVER_PKG_NAME)
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
+        installed_modules = list(sack.query().installed().filter(name__substr = KMOD_PKG_PREFIX))
 
-        if not installed_drivers:
+        # driver not installed
+        if not installed_drivers and debug is None:
             return
 
-        if not installed_kernel: # container/chroot
+        # container/chroot
+        if not installed_kernel and debug is None:
             return
 
         # The most recent installed kernel package
         installed_kernel  = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))[0]
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
-        driver = installed_drivers[0]
+        available_k_cores = sack.query().available().filter(name = KERNEL_PKG_REAL)
+
+        # Print debugging if running from CLI
+        if installed_kernel:
+            revive_msg(debug, '\nkernel: ' + str(installed_kernel))
+
+        if available_kernels:
+            string_kernels = ' '.join([str(elem) for elem in available_kernels])
+            revive_msg(debug, '\navailable ' + KERNEL_PKG_NAME + '(s): ' + str(string_kernels))
+
+        if available_k_cores:
+            string_cores = ' '.join([str(elem) for elem in available_k_cores])
+            revive_msg(debug, '\navailable ' + KERNEL_PKG_REAL + '(s): ' + str(string_cores))
+
+        if installed_modules:
+            string_modules = ' '.join([str(elem) for elem in installed_modules])
+            revive_msg(debug, '\ninstalled kmod(s): ' + str(string_modules))
+
+        # DKMS stream enabled
+        if installed_modules and 'dkms' in string_modules:
+            return
+
+        # Installed driver
+        try:
+            driver = installed_drivers[0]
+        except:
+            return
 
         # Exclude all available kernels which are newer than the most recent installed
         # kernel AND do NOT have a kmod package
@@ -62,19 +106,30 @@ class NvidiaPlugin(dnf.Plugin):
             if ver_cmp_pkgs(sack, kernelpkg, installed_kernel) != 1:
                 continue
 
-            k_corepkg = str(kernelpkg).replace(KERNEL_PKG_NAME + "-", KERNEL_PKG_REAL + "-")
+            # Matching kernel-core package
+            try:
+                k_corepkg = [i for i in available_k_cores if i.version == kernelpkg.version and i.release == kernelpkg.release][0]
+            except:
+                print('Unable to find matching ' + KERNEL_PKG_REAL + ' package')
 
+            # Get package name
             kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(driver.version) + '-' + \
                     str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
             kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = driver.version)
             if not kmod_pkg:
-                # Exclude kernel
-                sack.add_excludes([kernelpkg])
-                sack.add_excludes([k_corepkg])
-                print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
-                    str(kmod_pkg_name) + ' for kernel ' + str(kernelpkg) + ' and driver ' + \
-                    str(driver) + ' could be found')
+                # Exclude kernel packages
+                try:
+                    sack.add_excludes([kernelpkg])
+                    sack.add_excludes([k_corepkg])
+                    exclude = True
+                except Exception as error:
+                    print('WARNING: kernel exclude error', error)
+
+                if exclude == True:
+                    print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
+                    str(kmod_pkg_name) + ' for kernel version' + str(kernelpkg) + ' and driver ' + \
+                        str(driver) + ' could be found')
 
     def resolved(self):
         transaction = self.base.transaction
@@ -95,3 +150,14 @@ class NvidiaPlugin(dnf.Plugin):
                 for kmod in installed_kmods:
                     if is_kmod_pkg(kmod):
                         transaction.add_erase(kmod)
+
+
+@dnf.plugin.register_command
+class NvidiaPluginCommand(dnf.cli.Command):
+    aliases = ('nvidia-plugin',)
+    summary = 'Helper plugin for DNF to manage precompiled NVIDIA driver streams'
+
+    def run(self):
+        nvPlugin = NvidiaPlugin(dnf.Base, dnf.cli.Cli)
+        nvPlugin.sack(True)
+        print("---")
