@@ -20,7 +20,6 @@ gpgKey=""
 gpgArgs="$gpgBin --force-v3-sigs --digest-algo=sha512  --no-verbose --no-armor --no-secmem-warning"
 
 # Build defaults
-epoch=3
 topdir="$HOME/nvidia-plugin"
 arch="noarch"
 
@@ -30,7 +29,6 @@ arch="noarch"
 #
 
 clean_up() {
-    rm -rf "$unpackDir"
     (cd "$topdir" && rm -rf -- BUILD BUILDROOT RPMS SRPMS SOURCES SPECS)
     exit 1
 }
@@ -100,13 +98,17 @@ find_rpm()
 
 build_pkg()
 {
-    find_rpm $1-plugin-nvidia
+    find_rpm "$1-plugin-nvidia"
     pluginCode=$?
 
     if [[ $pluginCode -ne 0 ]]; then
         echo "==> plugin_$1_rpm()"
-        plugin_$1_rpm
-        find_rpm $1-plugin-nvidia
+        if [[ $1 == "dnf" ]]; then
+            plugin_dnf_rpm
+        else
+            plugin_yum_rpm
+        fi
+        find_rpm "$1-plugin-nvidia"
         pluginCode=$?
     else
         echo "[SKIP] plugin_$1_rpm()"
