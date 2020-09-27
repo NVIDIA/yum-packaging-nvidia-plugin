@@ -1,6 +1,6 @@
 %define pythonX_sitelib	%{?_python_sitelib}%{?!_python_sitelib:/usr/lib/python3.6/site-packages}
 Name:		dnf-plugin-nvidia
-Version:	1.8
+Version:	1.9
 Release:	1%{?dist}
 Summary:	DNF plugin needed to remove old kernel modules
 
@@ -27,6 +27,12 @@ install -m 644 %{SOURCE0} %{buildroot}%{pythonX_sitelib}/dnf-plugins/nvidia.py
 %{pythonX_sitelib}/dnf-plugins/__pycache__/nvidia.*
 
 %changelog
+* Thu Sep 17 2020 Kevin Mittman <kmittman@nvidia.com> 1.9-1
+ - Do not block kernel updates if DKMS stream kmod package is installed
+ - Retrieve k_corepkg hawkey package object rather than string
+ - Expose plugin as DNF command (for debugging)
+ - Print verbose output when running as a command
+
 * Wed Sep 9 2020 Kevin Mittman <kmittman@nvidia.com> 1.8-1
  - Block kernel-core updates that do not have a matching kmod package
 
