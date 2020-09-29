@@ -73,10 +73,18 @@ class NvidiaPlugin(dnf.Plugin):
         installed_kernel  = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))[0]
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
         available_k_cores = sack.query().available().filter(name = KERNEL_PKG_REAL)
+        available_drivers = sack.query().available().filter(name = DRIVER_PKG_NAME)
+        dkms_kmod_modules = sack.query().available().filter(name__substr = "dkms")
+        available_modules = sack.query().available().filter(name__substr = KMOD_PKG_PREFIX).difference(dkms_kmod_modules)
+
 
         # Print debugging if running from CLI
         if installed_kernel:
-            revive_msg(debug, '\nkernel: ' + str(installed_kernel))
+            revive_msg(debug, '\ninstalled kernel: ' + str(installed_kernel))
+
+        if installed_modules:
+            string_modules = ' '.join([str(elem) for elem in installed_modules])
+            revive_msg(debug, '\ninstalled kmod(s): ' + str(string_modules))
 
         if available_kernels:
             string_kernels = ' '.join([str(elem) for elem in available_kernels])
@@ -86,9 +94,13 @@ class NvidiaPlugin(dnf.Plugin):
             string_cores = ' '.join([str(elem) for elem in available_k_cores])
             revive_msg(debug, '\navailable ' + KERNEL_PKG_REAL + '(s): ' + str(string_cores))
 
-        if installed_modules:
-            string_modules = ' '.join([str(elem) for elem in installed_modules])
-            revive_msg(debug, '\ninstalled kmod(s): ' + str(string_modules))
+        if available_drivers:
+            string_drivers = ' '.join([str(elem) for elem in available_drivers])
+            revive_msg(debug, '\navailable driver(s): ' + str(string_drivers))
+
+        if available_modules:
+            string_all_modules = ' '.join([str(elem) for elem in available_modules])
+            revive_msg(debug, '\navailable kmod(s): ' + str(string_all_modules))
 
         # DKMS stream enabled
         if installed_modules and 'dkms' in string_modules:
@@ -112,24 +124,29 @@ class NvidiaPlugin(dnf.Plugin):
             except:
                 print('Unable to find matching ' + KERNEL_PKG_REAL + ' package')
 
-            # Get package name
-            kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(driver.version) + '-' + \
-                    str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
+            # Iterate through drivers in stream
+            for a_driver in available_drivers:
+                # Get package name
+                kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(a_driver.version) + '-' + \
+                        str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
-            kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = driver.version)
+                # Append object
+                if 'kmod_pkg' in locals():
+                    kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = a_driver.version).union(kmod_pkg)
+                else:
+                    kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = a_driver.version)
+
+            # kmod for kernel and driver combination not available
             if not kmod_pkg:
                 # Exclude kernel packages
                 try:
                     sack.add_excludes([kernelpkg])
                     sack.add_excludes([k_corepkg])
-                    exclude = True
+                    print('NOTE: Skipping kernel installation since no kernel module package ' + str(kmod_pkg_name) + \
+                        ' for kernel version ' + str(kernelpkg.version) + '-' + str(kernelpkg.release) + \
+                        ' and NVIDIA driver ' + str(driver.version) + ' could be found')
                 except Exception as error:
                     print('WARNING: kernel exclude error', error)
-
-                if exclude == True:
-                    print('NOTE: Skipping kernel installation since no NVIDIA driver kernel module package ' + \
-                    str(kmod_pkg_name) + ' for kernel version' + str(kernelpkg) + ' and driver ' + \
-                        str(driver) + ' could be found')
 
     def resolved(self):
         transaction = self.base.transaction
