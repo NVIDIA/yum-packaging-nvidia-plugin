@@ -23,6 +23,8 @@ The `main` branch contains this README and a sample build script. The `.spec` an
 - [Building Manually](#Building-Manually)
   * [Packaging plugin](#Packaging-plugin)
   * [Sign RPM packages with GPG signing key](#Sign-RPM-packages-with-GPG-signing-key)
+- [Blocking kernel updates](#Blocking-kernel-updates)
+  * [Debugging](#Debugging)
 - [Other NVIDIA driver packages](#Other-NVIDIA-driver-packages)
   * [Precompiled kernel modules](#Precompiled-kernel-modules)
 - [Contributing](#Contributing)
@@ -35,7 +37,7 @@ This repo contains the `.spec` file used to build the following **RPM** packages
 * **RHEL8** or **Fedora**
   ```shell
   dnf-plugin-nvidia-${version}-${rel}.${dist}.noarch.rpm
-  > ex: dnf-plugin-nvidia-1.6-1.el8.noarch.rpm
+  > ex: dnf-plugin-nvidia-2.0-1.el8.noarch.rpm
   ```
 
 * **RHEL7**
@@ -152,6 +154,33 @@ for package in RPMS/noarch/*-plugin-nvidia*.rpm; do
     --addsign "$package";
 done
 ```
+
+
+## Blocking kernel updates
+
+* **RHEL8** or **Fedora**  
+  Kernel updates will be blocked in the absence of the availability of a compatible kmod package for that kernel and driver combination.
+
+  The `kernel` and `kernel-core` packages will be removed from such `dnf` transactions and an error message will be printed, ex:
+
+  > NOTE: Skipping kernel installation since no kernel module package kmod-nvidia-450.51.06-4.18.0-193.19.1 for kernel 4.18.0-193.19.1 and NVIDIA driver 450.51.06-1.el8.x86_64 could be found
+
+
+### Debugging
+
+* **RHEL8** or **Fedora**  
+  Heuristic information can be printed via CLI, such as installed kernel, installed kmod packages, available kernels, available drivers, and available kmod packages.
+
+  ```shell
+  dnf nvidia-plugin
+  ```
+  > ex:  
+  **installed kernel:** kernel-4.18.0-193.14.3.el8_2.x86_64  
+  **installed kmod(s):** kmod-nvidia-450.51.06-4.18.0-193.14.3-3:450.51.06-2.el8_2.x86_64  
+  **available kernel(s):** kernel-4.18.0-80.el8.x86_64 kernel-4.18.0-80.1.2.el8_0.x86_64 kernel-4.18.0-80.4.2.el8_0.x86_64 kernel-4.18.0-80.11.2.el8_0.x86_64 kernel-4.18.0-80.7.1.el8_0.x86_64 kernel-4.18.0-80.7.2.el8_0.x86_64 kernel-4.18.0-80.11.1.el8_0.x86_64 kernel-4.18.0-147.0.2.el8_1.x86_64 kernel-4.18.0-147.5.1.el8_1.x86_64 kernel-4.18.0-147.8.1.el8_1.x86_64 kernel-4.18.0-147.3.1.el8_1.x86_64 kernel-4.18.0-147.el8.x86_64 kernel-4.18.0-147.0.3.el8_1.x86_64 kernel-4.18.0-193.el8.x86_64 kernel-4.18.0-193.1.2.el8_2.x86_64 kernel-4.18.0-193.6.3.el8_2.x86_64 kernel-4.18.0-193.13.2.el8_2.x86_64 kernel-4.18.0-193.14.3.el8_2.x86_64 kernel-4.18.0-193.19.1.el8_2.x86_64  
+  **available kernel-core(s):** kernel-core-4.18.0-80.el8.x86_64 kernel-core-4.18.0-80.4.2.el8_0.x86_64 kernel-core-4.18.0-80.1.2.el8_0.x86_64 kernel-core-4.18.0-80.11.2.el8_0.x86_64 kernel-core-4.18.0-147.el8.x86_64 kernel-core-4.18.0-80.11.1.el8_0.x86_64 kernel-core-4.18.0-80.7.2.el8_0.x86_64 kernel-core-4.18.0-80.7.1.el8_0.x86_64 kernel-core-4.18.0-147.8.1.el8_1.x86_64 kernel-core-4.18.0-147.5.1.el8_1.x86_64 kernel-core-4.18.0-147.0.3.el8_1.x86_64 kernel-core-4.18.0-147.3.1.el8_1.x86_64 kernel-core-4.18.0-147.0.2.el8_1.x86_64 kernel-core-4.18.0-193.el8.x86_64 kernel-core-4.18.0-193.1.2.el8_2.x86_64 kernel-core-4.18.0-193.6.3.el8_2.x86_64 kernel-core-4.18.0-193.13.2.el8_2.x86_64 kernel-core-4.18.0-193.14.3.el8_2.x86_64 kernel-core-4.18.0-193.19.1.el8_2.x86_64  
+  **available driver(s):** nvidia-driver-3:455.23.05-1.el8.x86_64  
+  **available kmod(s):** kmod-nvidia-455.23.05-4.18.0-193.19.1-3:455.23.05-2.el8_2.x86_64
 
 
 ## Other NVIDIA driver packages
