@@ -23,6 +23,8 @@ gpgArgs="$gpgBin --force-v3-sigs --digest-algo=sha512  --no-verbose --no-armor -
 topdir="$HOME/nvidia-plugin"
 arch="noarch"
 
+[[ -n $OUTPUT ]] ||
+OUTPUT="$HOME/rpm-nvidia"
 
 #
 # Functions
@@ -169,3 +171,11 @@ for pkg in "$topdir/RPMS/${arch}"/*; do
     sign_rpm "$pkg"
 done
 echo
+
+# Copy RPMs
+found=$(find "$topdir/RPMS" -mindepth 2 -maxdepth 2 -type f -name "*plugin*.rpm" 2>/dev/null)
+for rpm in $found; do
+    echo "-> $(basename "$rpm")"
+    mkdir -p "$OUTPUT"
+    rsync -a "$rpm" "$OUTPUT"
+done
