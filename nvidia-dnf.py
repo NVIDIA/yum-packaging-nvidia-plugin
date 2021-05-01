@@ -70,7 +70,10 @@ class NvidiaPlugin(dnf.Plugin):
             return
 
         # The most recent installed kernel package
-        installed_kernel  = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))[0]
+        installed_kernels = sorted(installed_kernel, reverse = True, key = lambda p: evr_key(p, sack))
+        if len(installed_kernels) > 0:
+            installed_kernel  = installed_kernels[0]
+
         available_kernels = sack.query().available().filter(name = KERNEL_PKG_NAME)
         available_k_cores = sack.query().available().filter(name = KERNEL_PKG_REAL)
         available_drivers = sack.query().available().filter(name = DRIVER_PKG_NAME)

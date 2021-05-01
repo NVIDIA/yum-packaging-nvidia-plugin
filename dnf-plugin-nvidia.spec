@@ -27,6 +27,9 @@ install -m 644 %{SOURCE0} %{buildroot}%{pythonX_sitelib}/dnf-plugins/nvidia.py
 %{pythonX_sitelib}/dnf-plugins/__pycache__/nvidia.*
 
 %changelog
+* Fri Apr 30 2021 Kevin Mittman <kmittman@nvidia.com> 2.1-1
+ - Debug mode: avoid index out-of-bounds if no kernel installed (in container)
+
 * Mon Sep 28 2020 Kevin Mittman <kmittman@nvidia.com> 2.0-1
  - Handle upgrade scenario when new branch is promoted to latest
  - Fix try-catch as per Timm's comments
