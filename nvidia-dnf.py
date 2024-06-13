@@ -128,13 +128,14 @@ class NvidiaPlugin(dnf.Plugin):
                 print('Unable to find matching ' + KERNEL_PKG_REAL + ' package')
 
             # Iterate through drivers in stream
+            kmod_pkg = None
             for a_driver in available_drivers:
                 # Get package name
                 kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(a_driver.version) + '-' + \
                         str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
                 # Append object
-                if 'kmod_pkg' in locals():
+                if kmod_pkg is not None:
                     kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = a_driver.version).union(kmod_pkg)
                 else:
                     kmod_pkg = sack.query().available().filter(name = kmod_pkg_name, version = a_driver.version)
