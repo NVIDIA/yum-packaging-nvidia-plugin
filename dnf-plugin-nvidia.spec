@@ -1,6 +1,6 @@
 Name:		dnf-plugin-nvidia
-Version:	2.0
-Release:	2%{?dist}
+Version:	2.1
+Release:	1%{?dist}
 Summary:	DNF plugin needed to remove old kernel modules
 License:	MIT
 BuildArch:	noarch
@@ -12,8 +12,11 @@ BuildRequires: python3-devel
 Requires:   python3-dnf
 
 %description
-This DNF plugin removes kernel module packages of outdated driver versions
-from the system and prevent kernel updates.
+When using precompiled kernel modules, this DNF plugin prevents kernel changes
+if there is no matching precompiled kernel module package available.
+
+It also also removes kernel module packages of outdated driver versions from
+the system.
 
 %install
 install -D -m 644 %{SOURCE0} %{buildroot}%{python3_sitelib}/dnf-plugins/nvidia.py
@@ -22,6 +25,15 @@ install -D -m 644 %{SOURCE0} %{buildroot}%{python3_sitelib}/dnf-plugins/nvidia.p
 %{python3_sitelib}/dnf-plugins/*
 
 %changelog
+* Wed Jun 05 2024 Simone Caronni <scaronni@nvidia.com> - 2.1-1
+- Consider *all* kernel subpackages when locking kernel upgrades.
+- The plugin now locks the kernel both in upgrade and downgrade scenarios.
+- Print information in nicer format when executing standalone.
+- Print all excluded kernel packages and subpackages from the current repository
+  information when executing standalone.
+- Consider both desktop, headless (compute only) and combined when checking for
+  drivers.
+
 * Fri Apr 12 2024 Simone Caronni <scaronni@nvidia.com> - 2.0-2
 - Clean up SPEC file, make it build in mock.
 - Merge https://github.com/NVIDIA/yum-packaging-nvidia-plugin/pull/9.
