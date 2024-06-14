@@ -1,6 +1,6 @@
 Name:		dnf-plugin-nvidia
 Version:	2.1
-Release:	1%{?dist}
+Release:	2%{?dist}
 Summary:	DNF plugin needed to remove old kernel modules
 License:	MIT
 BuildArch:	noarch
@@ -25,6 +25,11 @@ install -D -m 644 %{SOURCE0} %{buildroot}%{python3_sitelib}/dnf-plugins/nvidia.p
 %{python3_sitelib}/dnf-plugins/*
 
 %changelog
+* Thu Jun 13 2024 Simone Caronni <scaronni@nvidia.com> - 2.1-2
+- Fix error when running without any driver package installed.
+- Print all installed kernels when running standalone, the latest installed
+  kernel might not be the running one.
+
 * Wed Jun 05 2024 Simone Caronni <scaronni@nvidia.com> - 2.1-1
 - Consider *all* kernel subpackages when locking kernel upgrades.
 - The plugin now locks the kernel both in upgrade and downgrade scenarios.

@@ -80,8 +80,9 @@ class NvidiaPlugin(dnf.Plugin):
         available_modules = sack.query().available().filter(name__substr = KMOD_PKG_PREFIX).difference(dkms_kmod_modules)
 
         # Print debugging if running from CLI
-        if installed_kernel:
-            revive_msg(debug, '\nInstalled kernel:\n  ' + str(installed_kernel))
+        if installed_kernels:
+            string_kernels = '\n  '.join([str(elem) for elem in installed_kernels])
+            revive_msg(debug, '\nInstalled kernel(s):\n  ' + str(string_kernels))
 
         if installed_modules:
             string_modules = '\n  '.join([str(elem) for elem in installed_modules])
@@ -118,8 +119,7 @@ class NvidiaPlugin(dnf.Plugin):
             kmod_pkg = None
             for a_driver in available_drivers:
                 # Get package name
-                kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(a_driver.version) + '-' + \
-                        str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
+                kmod_pkg_name = KMOD_PKG_PREFIX + '-' + str(a_driver.version) + '-' + str(kernelpkg.version) + '-' + str(remove_release_dist(kernelpkg.release))
 
                 # Append object
                 if kmod_pkg is not None:
@@ -147,11 +147,9 @@ class NvidiaPlugin(dnf.Plugin):
 
     def resolved(self):
         transaction = self.base.transaction
-        # XXX This is a workaround for https://bugzilla.redhat.com/show_bug.cgi?id=1658517
-        sack = dnf.sack._rpmdb_sack(self.base)
 
         for pkg in transaction.remove_set:
-            if pkg.name == DRIVER_PKG_NAME:
+            if pkg.name == DESKTOP_PKG_NAME or pkg.name == COMPUTE_PKG_NAME:
                 # We are removing a driver package, through an
                 # actual remove or an upgrade. Remove all
                 # kmod packages belonging to it as well.
