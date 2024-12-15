@@ -57,7 +57,7 @@ class NvidiaPlugin(dnf.Plugin):
             sack = self.base.sack
 
         # check installed
-        installed_drivers = sack.query().installed().filter(name = DESKTOP_PKG_NAME)
+        installed_drivers = sack.query().installed().filter(name = [DESKTOP_PKG_NAME, COMPUTE_PKG_NAME])
         installed_kernel = list(sack.query().installed().filter(name = KERNEL_PKG_NAME))
         installed_modules = list(sack.query().installed().filter(name__substr = KMOD_PKG_PREFIX))
 
